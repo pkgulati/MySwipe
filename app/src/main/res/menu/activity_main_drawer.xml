@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_refresh"
+            android:icon="@drawable/ic_menu_gallery"
+            android:title="Refresh" />
+    </group>
+
+    <item android:title="Advance">
+        <menu>
+            <item
+                android:id="@+id/nav_reset"
+                android:icon="@drawable/ic_menu_send"
+                android:title="Reset" />
+
+            <item
+                android:id="@+id/download_apk"
+                android:icon="@drawable/ic_file_download_black_24dp"
+                android:title="Update/Download APK" />
+
+            <item
+                android:id="@+id/logout"
+                android:icon="@drawable/ic_logout_black_24dp"
+                android:title="Logout" />
+
+        </menu>
+
+
+
+    </item>
+
+</menu>
