@@ -29,6 +29,9 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -94,7 +97,7 @@ public class MainActivity extends AppCompatActivity
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 1);
         calendar.set(Calendar.MILLISECOND, 0);
-        Log.d(MainActivity.TAG, "Calendar ts "+ calendar.getTimeInMillis());
+        Log.d(TheApplication.TAG, "Calendar ts "+ calendar.getTimeInMillis());
 
         ImageButton prevButton = (ImageButton) findViewById(R.id.previous_month_arrow);
         prevButton.setOnClickListener(new View.OnClickListener() {
@@ -107,7 +110,7 @@ public class MainActivity extends AppCompatActivity
                 SharedPreferences pref = MainActivity.this.getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
                 boolean messagesRead = pref.getBoolean("messagesRead", false);
                 if (!messagesRead) {
-                    Log.d(MainActivity.TAG, "read messages for " + df.format(calendar.getTimeInMillis()));
+                    Log.d(TheApplication.TAG, "read messages for " + df.format(calendar.getTimeInMillis()));
                     MessageManager.readMessages(MainActivity.this, calendar.getTimeInMillis(), endTime);
                     SharedPreferences.Editor edit = pref.edit();
                     edit.putBoolean("messagesRead", true);
@@ -127,8 +130,8 @@ public class MainActivity extends AppCompatActivity
                 today.set(Calendar.MINUTE, 0);
                 today.set(Calendar.SECOND, 1);
                 today.set(Calendar.MILLISECOND, 0);
-                Log.d(MainActivity.TAG, "Calendar ts "+ calendar.getTimeInMillis());
-                Log.d(MainActivity.TAG, "Today ts "+ today.getTimeInMillis());
+                Log.d(TheApplication.TAG, "Calendar ts "+ calendar.getTimeInMillis());
+                Log.d(TheApplication.TAG, "Today ts "+ today.getTimeInMillis());
                 if (calendar.getTimeInMillis() >= today.getTimeInMillis()) {
                     Toast.makeText(MainActivity.this, "Try next day, tomorrow", Toast.LENGTH_SHORT).show();
                     return;
@@ -156,14 +159,17 @@ public class MainActivity extends AppCompatActivity
         int lastUsedVersion = pref.getInt("lastUsedVersion", 0);
         if (lastUsedVersion < BuildConfig.VERSION_CODE) {
             Log.d(TheApplication.TAG, "Version Upgrade " + lastUsedVersion);
-//            JobScheduler jobScheduler = (JobScheduler) getSystemService(JOB_SCHEDULER_SERVICE);
-//            if (jobScheduler != null) {
-//                jobScheduler.cancelAll();
-//            }
+            JobScheduler jobScheduler = (JobScheduler) getSystemService(JOB_SCHEDULER_SERVICE);
+            if (jobScheduler != null) {
+                jobScheduler.cancelAll();
+            }
+            scheduleJobs();
             SharedPreferences.Editor editor = pref.edit();
             editor.putInt("lastUsedVersion", BuildConfig.VERSION_CODE);
             editor.commit();
         }
+
+        FCMJob.scheduleJob(this, FCMJob.FCM_JOB_ID, 1);
 
         boolean permissionGranted = ActivityCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED;
         if (!permissionGranted) {
@@ -274,7 +280,7 @@ public class MainActivity extends AppCompatActivity
     public void readSwipeData() {
         SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
         String preferenceName = "swipeData" + df.format(calendar.getTimeInMillis());
-        Log.d(MainActivity.TAG, "Fetching data for " + preferenceName);
+        Log.d(TheApplication.TAG, "Fetching data for " + preferenceName);
         SharedPreferences spref = this.getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
         swipeInTime = spref.getLong("swipeInTime", 0);
         swipeOutTime = spref.getLong("swipeOutTime", 0);
@@ -495,7 +501,27 @@ public class MainActivity extends AppCompatActivity
     protected void onStart() {
         super.onStart();
         fetchData();
+        sendActivity();
         Log.d(TheApplication.TAG, "onStart");
+    }
+
+    private void sendActivity() {
+        JSONObject data = new JSONObject();
+        try {
+            data.put("type", "MySwipe");
+            data.put("deviceManufacturer", Build.MANUFACTURER);
+            data.put("deviceModel", Build.MODEL);
+            data.put("deviceProduct", Build.PRODUCT);
+            data.put("deviceVersionRelease", Build.VERSION.RELEASE);
+            data.put("deviceSDKVersion", Build.VERSION.SDK_INT);
+            data.put("versionCode", BuildConfig.VERSION_CODE);
+            data.put("versionName", BuildConfig.VERSION_NAME);
+            data.put("buildTimestamp", BuildConfig.BUILD_TIMESTAMP);
+            data.put("appName", "MySwipe");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        MessageManager.postData(this, data);
     }
 
     @Override

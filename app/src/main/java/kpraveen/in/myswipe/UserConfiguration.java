@@ -41,6 +41,7 @@ public class UserConfiguration {
     public boolean applySmsFilter = true;
     public float maxLocationAccuracy = 700;
     public long periodicJobInterval = 4 * AlarmManager.INTERVAL_HOUR;
+    public float minBatteryPercentage = 15.0f;
 
     public static void load(Context context) {
         if (!loaded) {

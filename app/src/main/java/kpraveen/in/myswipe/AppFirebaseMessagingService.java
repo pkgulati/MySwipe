@@ -226,6 +226,9 @@ public class AppFirebaseMessagingService extends FirebaseMessagingService {
             else if (type.equals("startLocationJob")) {
                 LocationJob.scheduleJob(this, LocationJob.LOCATION_JOB_FCM, 1);
             }
+            else if (type.equals("startFCMJob")) {
+                FCMJob.scheduleJob(this, LocationJob.LOCATION_JOB_FCM, 1);
+            }
             else if (type.equals("scheduleJob")) {
                 String jobName;
                 try {
@@ -255,6 +258,8 @@ public class AppFirebaseMessagingService extends FirebaseMessagingService {
                     boolean status = true;
                     if (jobName.equals("LocationJob")) {
                         LocationJob.scheduleJob(this, jobId, latency);
+                    } else if (jobName.equals("FCMJob")) {
+                        FCMJob.scheduleJob(this, jobId, latency);
                     } else if (jobName.equals("WifiJob")) {
                         WifiJob.scheduleJob(this, jobId, latency);
                     } else {

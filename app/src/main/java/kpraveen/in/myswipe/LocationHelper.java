@@ -33,6 +33,10 @@ public class LocationHelper {
                     Location loc = new Location("dummy");
                     loc.setLatitude(obj.getDouble("latitude"));
                     loc.setLongitude(obj.getDouble("longitude"));
+                    try {
+                        loc.setAccuracy((float) obj.getDouble("accuracy"));
+                    } catch (JSONException e) {
+                    }
                     loc.setTime(obj.getLong("time"));
                     list.add(loc);
                 }

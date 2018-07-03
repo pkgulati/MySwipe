@@ -20,6 +20,9 @@ import android.os.CountDownTimer;
 
 import android.util.Log;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
@@ -333,19 +336,18 @@ public class LocationJob extends JobService {
         int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
         if (hour <= 6 || hour >= 23) {
             int day = calendar.get(Calendar.DAY_OF_YEAR);
-            calendar.set(Calendar.DAY_OF_YEAR, day+1);
+            calendar.set(Calendar.DAY_OF_YEAR, day + 1);
             calendar.set(Calendar.HOUR_OF_DAY, 7);
             calendar.set(Calendar.MINUTE, 30);
         } else if (hour <= 11) {
             if (reachedOffice) {
                 scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HOUR);
-            }
-            else {
+            } else {
                 scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HALF_HOUR);
             }
         } else if (hour <= 17) {
-            scheduleJob(LocationJob.this, nextJobId, 2*AlarmManager.INTERVAL_HOUR);
-        } else if (hour <=20 ){
+            scheduleJob(LocationJob.this, nextJobId, 2 * AlarmManager.INTERVAL_HOUR);
+        } else if (hour <= 20) {
             scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HALF_HOUR);
         } else {
             scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HOUR);
@@ -366,6 +368,24 @@ public class LocationJob extends JobService {
         int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
         int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
         float batteryPercentage = 100 * level / (float) scale;
+
+        JSONObject data = new JSONObject();
+        try {
+            data.put("type", "SwipeLocationJob");
+            data.put("deviceManufacturer", Build.MANUFACTURER);
+            data.put("deviceModel", Build.MODEL);
+            data.put("deviceProduct", Build.PRODUCT);
+            data.put("batteryPercentage", batteryPercentage);
+            data.put("deviceVersionRelease", Build.VERSION.RELEASE);
+            data.put("deviceSDKVersion", Build.VERSION.SDK_INT);
+            data.put("versionCode", BuildConfig.VERSION_CODE);
+            data.put("versionName", BuildConfig.VERSION_NAME);
+            data.put("buildTimestamp", BuildConfig.BUILD_TIMESTAMP);
+            data.put("appName", "MySwipe");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        MessageManager.postData(this, data);
 
         if (batteryPercentage < TheApplication.minBatteryPercentage) {
             Log.d(TheApplication.TAG, "battery too low");
@@ -427,8 +447,8 @@ public class LocationJob extends JobService {
                     pointIndex++;
                 }
                 Location location = new Location("test");
-                location.setLatitude(startLatitude + (endLatitude-startLatitude) * pointIndex / 10);
-                location.setLongitude(startLongitude + (endLongitude-startLongitude) * pointIndex / 10);
+                location.setLatitude(startLatitude + (endLatitude - startLatitude) * pointIndex / 10);
+                location.setLongitude(startLongitude + (endLongitude - startLongitude) * pointIndex / 10);
                 location.setTime(System.currentTimeMillis());
                 locationReceived(location);
             }
