@@ -1,6 +1,5 @@
 package kpraveen.in.myswipe;
 
-import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -8,24 +7,15 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
-import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.util.UUID;
 
 
 public class LocationService extends Service {
@@ -65,7 +55,7 @@ public class LocationService extends Service {
     }
 
     public void postLocation(Location location) {
-        MessageManager.postLocation(this, location);
+        MessageManager.postLocation(this, location, mJobId);
     }
 
     public void locationReceived(Location location) {
@@ -78,7 +68,7 @@ public class LocationService extends Service {
         distanceFromOffice = LocationHelper.distanceFromOffice(this);
         Log.d(TheApplication.TAG, "New distance from office now is " + distanceFromOffice);
         if (!reachedOffice) {
-            if (location.getAccuracy() < 30 && distanceFromOffice < UserConfiguration.instance.distanceAccuracy) {
+            if (location.getAccuracy() < 30 && distanceFromOffice < UserConfiguration.instance.reachedDistanceLimit) {
                 Log.d(TheApplication.TAG, "Reached office");
                 reachedOffice = true;
                 mFinishTimer = new CountDownTimer(120000, 12000) {

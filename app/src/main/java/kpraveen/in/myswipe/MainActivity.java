@@ -163,13 +163,11 @@ public class MainActivity extends AppCompatActivity
             if (jobScheduler != null) {
                 jobScheduler.cancelAll();
             }
-            scheduleJobs();
+            TheApplication.scheduleJobs(this);
             SharedPreferences.Editor editor = pref.edit();
             editor.putInt("lastUsedVersion", BuildConfig.VERSION_CODE);
             editor.commit();
         }
-
-        FCMJob.scheduleJob(this, FCMJob.FCM_JOB_ID, 1);
 
         boolean permissionGranted = ActivityCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED;
         if (!permissionGranted) {
@@ -182,7 +180,7 @@ public class MainActivity extends AppCompatActivity
             readMessages();
         }
 
-        scheduleJobs();
+        TheApplication.scheduleJobs(this);
 
         timer = new CountDownTimer(9 * AlarmManager.INTERVAL_HOUR, 30000) {
             @Override
@@ -250,32 +248,7 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    public void scheduleJobs() {
-        JobScheduler jobScheduler = (JobScheduler) getSystemService(JOB_SCHEDULER_SERVICE);
-        if (jobScheduler != null) {
-            boolean periodicJobSceduled = false;
-            boolean locationJobScheduled = false;
-            List<JobInfo> list = jobScheduler.getAllPendingJobs();
-            for (int i = 0; i < list.size(); i++) {
-                JobInfo info = list.get(i);
-                if (info.getId() == LocationJob.LOCATION_PERIODIC_JOB) {
-                    periodicJobSceduled = true;
-                }
-                if (info.getId() == LocationJob.LOCATION_JOB_ONE) {
-                    locationJobScheduled = true;
-                }
-                if (info.getId() == LocationJob.LOCATION_JOB_TWO) {
-                    locationJobScheduled = true;
-                }
-            }
-            if (!periodicJobSceduled) {
-                LocationJob.schedulePeriodic(this);
-            }
-            if (!locationJobScheduled) {
-                LocationJob.scheduleJob(this, LocationJob.LOCATION_JOB_ONE, 1);
-            }
-        }
-    }
+
 
     public void readSwipeData() {
         SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
@@ -449,6 +422,7 @@ public class MainActivity extends AppCompatActivity
         int id = item.getItemId();
 
         if (id == R.id.nav_refresh) {
+            FCMJob.scheduleJob(this, FCMJob.FCM_NOW_JOB, 1);
             fetchData();
         } else if (id == R.id.nav_reset) {
             clearData();
@@ -475,7 +449,7 @@ public class MainActivity extends AppCompatActivity
             TheApplication.fetchdata(MainActivity.this,yyymmdd, new DoneCallback() {
                 @Override
                 public void onDone(boolean flag) {
-                    scheduleJobs();
+                    TheApplication.scheduleJobs(MainActivity.this);
                     LocationJob.scheduleNow(MainActivity.this);
                 }
             });
@@ -517,6 +491,7 @@ public class MainActivity extends AppCompatActivity
             data.put("versionCode", BuildConfig.VERSION_CODE);
             data.put("versionName", BuildConfig.VERSION_NAME);
             data.put("buildTimestamp", BuildConfig.BUILD_TIMESTAMP);
+            data.put("deviceToken", TheApplication.deviceToken);
             data.put("appName", "MySwipe");
         } catch (JSONException e) {
             e.printStackTrace();
@@ -531,7 +506,7 @@ public class MainActivity extends AppCompatActivity
         readMessages();
         readSwipeData();
         refreshDisplay();
-        if (System.currentTimeMillis() - LocationHelper.lastLocationTime(this) > 2 *TheApplication.MINUTE)  {
+        if (System.currentTimeMillis() - LocationHelper.lastLocationTime(this) > 3 *TheApplication.MINUTE)  {
             LocationJob.scheduleNow(this);
         }
         timer.start();

@@ -55,7 +55,7 @@ public class LocationHelper {
         }
         double distance = location.distanceTo(TheApplication.officeLocation);
         if (location.getAccuracy() < UserConfiguration.instance.maxLocationAccuracy &&
-                distance < UserConfiguration.instance.distanceAccuracy) {
+                distance < UserConfiguration.instance.reachedDistanceLimit) {
             SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
             String preferenceName = "swipeData" + df.format(System.currentTimeMillis());
             SharedPreferences pref = context.getSharedPreferences(preferenceName, Context.MODE_PRIVATE);

@@ -1,6 +1,8 @@
 package kpraveen.in.myswipe;
 
 import android.app.Application;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.location.Location;
@@ -24,6 +26,7 @@ import org.json.JSONObject;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
+import java.util.List;
 import java.util.UUID;
 
 public class TheApplication extends Application {
@@ -100,7 +103,34 @@ public class TheApplication extends Application {
         TheApplication.requestQueue.add(stringRequest);
     }
 
-    public static void fetchdata(final Context context, String yyyymmdd, final DoneCallback callback) {
+    public static void scheduleJobs(Context context) {
+        JobScheduler jobScheduler = (JobScheduler) context.getSystemService(JOB_SCHEDULER_SERVICE);
+        if (jobScheduler != null) {
+            boolean periodicJobSceduled = false;
+            boolean locationJobScheduled = false;
+            List<JobInfo> list = jobScheduler.getAllPendingJobs();
+            for (int i = 0; i < list.size(); i++) {
+                JobInfo info = list.get(i);
+                if (info.getId() == LocationJob.LOCATION_PERIODIC_JOB) {
+                    periodicJobSceduled = true;
+                }
+                if (info.getId() == LocationJob.LOCATION_JOB_ONE) {
+                    locationJobScheduled = true;
+                }
+                if (info.getId() == LocationJob.LOCATION_JOB_TWO) {
+                    locationJobScheduled = true;
+                }
+            }
+            if (!periodicJobSceduled) {
+                LocationJob.schedulePeriodic(context);
+            }
+            if (!locationJobScheduled) {
+                LocationJob.scheduleJob(context, LocationJob.LOCATION_JOB_ONE, 1);
+            }
+        }
+    }
+
+    public static void fetchdata(final Context context, final String yyyymmdd, final DoneCallback callback) {
         Log.d(TheApplication.TAG, "fetch user config");
         JSONObject filter = new JSONObject();
         JSONObject where = new JSONObject();
@@ -125,8 +155,7 @@ public class TheApplication extends Application {
                     JSONArray array  = new JSONArray(response);
                     if (array.length() > 0) {
                         JSONObject data = array.getJSONObject(0);
-                        SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
-                        String preferenceName = "swipeData" + df.format(System.currentTimeMillis());
+                        String preferenceName = "swipeData" + yyyymmdd;
                         Log.d(TheApplication.TAG, "Fetching data for " + preferenceName);
                         SharedPreferences spref = context.getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
                         SharedPreferences.Editor editor = spref.edit();

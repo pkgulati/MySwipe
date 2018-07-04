@@ -29,7 +29,9 @@ import java.util.List;
 public class FCMJob extends JobService {
 
     public static int FCM_JOB_ID = 801;
-    private static int FCM_PERIODIC_JOB = 808;
+    public static int FCM_PERIODIC_JOB = 808;
+    public static int FCM_NOW_JOB = 802;
+
     private LocationListener networkListener;
     private LocationListener gpsListener;
     public Location lastNetworkLocation = null;
@@ -101,7 +103,7 @@ public class FCMJob extends JobService {
     private void startGPS() {
         try {
             Log.d(TheApplication.TAG, "start GPS");
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 0, gpsListener);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 10, gpsListener);
         } catch (SecurityException e) {
             Log.e(TheApplication.TAG, "Check permission for GPS");
         }
@@ -121,7 +123,7 @@ public class FCMJob extends JobService {
     private void startNetwork() {
         try {
             Log.d(TheApplication.TAG, "start Network");
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 15000, 1, networkListener);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 15000, 15, networkListener);
         } catch (SecurityException e) {
         }
         networkRunning = true;
@@ -139,7 +141,7 @@ public class FCMJob extends JobService {
     public void locationReceived(Location location) {
         Log.d(TheApplication.TAG, "FCMJob location received     " + location.getProvider() + " --> " + location.getLatitude() + ", " + location.getLongitude() + " , " + location.getAccuracy());
         lastLocation = location;
-        MessageManager.postLocation(this, location);
+        MessageManager.postLocation(this, location, mJobId);
         LocationHelper.locationReceived(this, location);
         if (numGPSResults >= 3) {
             finishThisJob();
@@ -279,7 +281,7 @@ public class FCMJob extends JobService {
 
         JSONObject activity = new JSONObject();
         try {
-            activity.put("type", "FCMJobStart");
+            activity.put("type", "SwipeFCMJob");
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -296,6 +298,7 @@ public class FCMJob extends JobService {
             e.printStackTrace();
         }
 
+        MessageManager.postData(this, activity);
 
         if (batteryPercentage < UserConfiguration.instance.minBatteryPercentage) {
             return false;

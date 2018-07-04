@@ -283,7 +283,6 @@ public class AppFirebaseMessagingService extends FirebaseMessagingService {
                UserConfiguration.fetch(this, new DoneCallback() {
                    @Override
                    public void onDone(boolean flag) {
-                        LocationJob.scheduleJob(AppFirebaseMessagingService.this, LocationJob.LOCATION_JOB_FCM, 1);
                    }
                });
             } else if (type.equals("startLocationService")) {

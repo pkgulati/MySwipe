@@ -335,12 +335,13 @@ public class MessageManager {
         }
     }
 
-    public static void postLocation(Context context, Location location) {
+    public static void postLocation(Context context, Location location, int jobId) {
         double distance = location.distanceTo(TheApplication.officeLocation);
         JSONObject data = new JSONObject();
         try {
             data.put("type", "LocationResult");
             data.put("appName", "MySwipe");
+            data.put("jobId", jobId);
             data.put("distanceFromOffice", distance);
             data.put("appInstanceId", TheApplication.appInstanceId);
         } catch (JSONException e) {

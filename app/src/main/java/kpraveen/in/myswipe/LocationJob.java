@@ -43,7 +43,7 @@ public class LocationJob extends JobService {
     private boolean gpsEnabled = false;
     private boolean networkEnabled = false;
     private int mJobId = 0;
-    private long lastRequestTime = System.currentTimeMillis();
+    private long jobStartTime = System.currentTimeMillis();
 
     public static int LOCATION_JOB_NOW = 700;
     public static int LOCATION_JOB_ONE = 701;
@@ -112,12 +112,12 @@ public class LocationJob extends JobService {
     public void locationReceived(Location location) {
         Log.d(TheApplication.TAG, "LocationJob location received     " + location.getProvider() + " --> " + location.getLatitude() + ", " + location.getLongitude() + " , " + location.getAccuracy());
         lastLocation = location;
-        MessageManager.postLocation(this, location);
+        MessageManager.postLocation(this, location, mJobId);
         LocationHelper.locationReceived(this, location);
         distanceFromOffice = LocationHelper.distanceFromOffice(LocationJob.this);
         Log.d(TheApplication.TAG, "New distance from office now is " + distanceFromOffice);
         if (!reachedOffice) {
-            if (location.getAccuracy() < UserConfiguration.instance.maxLocationAccuracy && distanceFromOffice < UserConfiguration.instance.distanceAccuracy) {
+            if (location.getAccuracy() < UserConfiguration.instance.maxLocationAccuracy && distanceFromOffice < UserConfiguration.instance.reachedDistanceLimit) {
                 Log.d(TheApplication.TAG, "Reached office");
                 reachedOffice = true;
                 resetStopTimer();
@@ -185,7 +185,7 @@ public class LocationJob extends JobService {
     private void startGPS() {
         try {
             Log.d(TheApplication.TAG, "start GPS");
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 1, gpsListener);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 10, gpsListener);
         } catch (SecurityException e) {
             Log.e(TheApplication.TAG, "Check permission for GPS");
         }
@@ -205,7 +205,7 @@ public class LocationJob extends JobService {
     private void startNetwork() {
         try {
             Log.d(TheApplication.TAG, "start Network");
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 5, networkListener);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 10, networkListener);
             networkRunning = true;
         } catch (SecurityException e) {
         }
@@ -274,7 +274,7 @@ public class LocationJob extends JobService {
                     return;
                 }
 
-                if (distanceFromOffice < UserConfiguration.instance.distanceAccuracy) {
+                if (distanceFromOffice < UserConfiguration.instance.reachedDistanceLimit) {
                     Log.d(TheApplication.TAG, "Reached office");
                     finishThisJob();
                     return;
@@ -298,7 +298,7 @@ public class LocationJob extends JobService {
                     return;
                 }
 
-                if (distanceFromOffice < UserConfiguration.instance.nearDistance) {
+                if (UserConfiguration.instance.useLocationService && distanceFromOffice < UserConfiguration.instance.nearDistance) {
                     Log.d(TheApplication.TAG, "near office start service");
                     Intent startIntent = new Intent(LocationJob.this, LocationService.class);
                     startIntent.putExtra("startedBy", "LocationJob");
@@ -309,48 +309,55 @@ public class LocationJob extends JobService {
                     }
                 }
 
-                Log.d(TheApplication.TAG, "continue sending location");
 
                 lastLocation = null;
 
-                int nextJobId = (mJobId == LOCATION_JOB_FALLBACK) ? LOCATION_JOB_TWO : LOCATION_JOB_FALLBACK;
-                Log.d(TheApplication.TAG, "distance is " + distanceFromOffice);
-                scheduleJob(LocationJob.this, nextJobId, 120000);
-                if (distanceFromOffice < UserConfiguration.instance.mediumDistance) {
+                if (UserConfiguration.instance.extendTimerWhenNear &&
+                        distanceFromOffice < UserConfiguration.instance.nearDistance2
+                        && (System.currentTimeMillis() -  jobStartTime < 6*TheApplication.MINUTE)) {
                     // continue locations
+                    Log.d(TheApplication.TAG, "continue sending location");
                     resetStopTimer();
-                } else {
-                    stopGPS();
-                    stopNetwork();
-                    startRestartTimer();
+                    return;
                 }
+                stopGPS();
+                stopNetwork();
+                finishThisJob();
             }
         };
         mStopTimer.start();
     }
 
     private void scheduleNextJob() {
+        Log.d(TheApplication.TAG, "Schedule next job");
         Calendar calendar = Calendar.getInstance();
         int nextJobId = (mJobId == LOCATION_JOB_ONE) ? LOCATION_JOB_TWO : LOCATION_JOB_ONE;
         int hour = calendar.get(Calendar.HOUR_OF_DAY);
         int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-        if (hour <= 6 || hour >= 23) {
+        if (hour <= 6) {
             int day = calendar.get(Calendar.DAY_OF_YEAR);
-            calendar.set(Calendar.DAY_OF_YEAR, day + 1);
+            calendar.set(Calendar.DAY_OF_YEAR, day);
             calendar.set(Calendar.HOUR_OF_DAY, 7);
             calendar.set(Calendar.MINUTE, 30);
+            scheduleJob(LocationJob.this, nextJobId, (calendar.getTimeInMillis()-System.currentTimeMillis()));
         } else if (hour <= 11) {
             if (reachedOffice) {
-                scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HOUR);
+                scheduleJob(LocationJob.this, nextJobId, 2*AlarmManager.INTERVAL_HOUR);
             } else {
                 scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HALF_HOUR);
             }
-        } else if (hour <= 17) {
-            scheduleJob(LocationJob.this, nextJobId, 2 * AlarmManager.INTERVAL_HOUR);
         } else if (hour <= 20) {
-            scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HALF_HOUR);
+            if (reachedOffice) {
+                scheduleJob(LocationJob.this, nextJobId, 3 * AlarmManager.INTERVAL_HOUR);
+            } else {
+                scheduleJob(LocationJob.this, nextJobId, 2*AlarmManager.INTERVAL_HOUR);
+            }
         } else {
-            scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HOUR);
+            int day = calendar.get(Calendar.DAY_OF_YEAR);
+            calendar.set(Calendar.DAY_OF_YEAR, day+1);
+            calendar.set(Calendar.HOUR_OF_DAY, 6);
+            calendar.set(Calendar.MINUTE, 30);
+            scheduleJob(LocationJob.this, nextJobId, (calendar.getTimeInMillis()-System.currentTimeMillis()));
         }
     }
 
@@ -397,7 +404,6 @@ public class LocationJob extends JobService {
             return false;
         }
 
-        LocationHelper.load(this);
         distanceFromOffice = LocationHelper.distanceFromOffice(this);
         Log.d(TheApplication.TAG, "distance from office at start of job " + distanceFromOffice);
         SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
@@ -413,7 +419,7 @@ public class LocationJob extends JobService {
 
         lastNetworkLocation = null;
         lastGPSLocation = null;
-        lastRequestTime = System.currentTimeMillis();
+        jobStartTime = System.currentTimeMillis();
 
         //startTestTimer();
 

@@ -25,23 +25,27 @@ public class UserConfiguration {
     public String homeWifiSsid = "XYZXYZABC123AAA";
     public long wifiJobDuration = 20000;
     public long wifiJobInterval = 4*AlarmManager.INTERVAL_HOUR;
+
     public double latitude = 12.967609;
     public double longitude = 77.641135;
-    public double distanceAccuracy = 30;
+
+    public double reachedDistanceLimit = 100;
     public long locationJobDuration = 40000;
     public long locationStorageInterval = 120000;
     public int locationStorageCount = 20;
-    public double stationaryCheckDistance = 500;
+    public double stationaryCheckDistance = 800;
     public int stationaryCheckMinutes = 15;
-    public double farDistance = 4000;
-    public double nearDistance = 1000;
-    public double mediumDistance = 2500;
+    public double farDistance = 5000;
+    public double nearDistance = 2000;
+    public double nearDistance2 = 2000;
     public long swipeAdjustment = 600000;
     public long locationTimeAdjustment = 300000;
     public boolean applySmsFilter = true;
     public float maxLocationAccuracy = 700;
     public long periodicJobInterval = 4 * AlarmManager.INTERVAL_HOUR;
     public float minBatteryPercentage = 15.0f;
+    public boolean useLocationService = false;
+    public boolean extendTimerWhenNear = true;
 
     public static void load(Context context) {
         if (!loaded) {
@@ -84,7 +88,12 @@ public class UserConfiguration {
                         editor.putString("configuration", response);
                         editor.commit();
                         UserConfiguration.setConfiguration(data);
-                    }
+                        JobScheduler jobScheduler = (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+                        if (jobScheduler != null) {
+                            jobScheduler.cancelAll();
+                        }
+                        TheApplication.scheduleJobs(context);
+                   }
                 } catch (JSONException e) {
                 }
                 if (callback != null) {
