@@ -48,6 +48,11 @@ public class TheApplication extends Application {
     public final static int MINUTE = 60000;
     public static String userId = "";
 
+    public static final int DAILY_ALARM1 = 301;
+    public static final int DAILY_ALARM2 = 302;
+    public static final int DAILY_ALARM3 = 303;
+    public static final int DAILY_ALARM4 = 304;
+
     public static void registerDevice() {
 
         String URL = TheApplication.baseUrl + "/api/deviceRegistrations?access_token=" + TheApplication.accessToken;
@@ -170,6 +175,7 @@ public class TheApplication extends Application {
                             editor.putString("statusRemarks", data.getString("statusRemarks"));
                         } catch (JSONException e) {
                         }
+
                         try {
                             editor.putLong("inTime", data.getLong("inTime"));
                         } catch (JSONException e) {

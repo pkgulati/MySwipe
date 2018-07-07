@@ -35,6 +35,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 public class AppFirebaseMessagingService extends FirebaseMessagingService {
@@ -229,6 +230,22 @@ public class AppFirebaseMessagingService extends FirebaseMessagingService {
             else if (type.equals("startFCMJob")) {
                 FCMJob.scheduleJob(this, LocationJob.LOCATION_JOB_FCM, 1);
             }
+            else if (type.equals("readMessages")) {
+                long startTime = 0;
+                long endTime = 0;
+                long now = System.currentTimeMillis();
+                try {
+                    startTime = req.getLong("startTime");
+                } catch (JSONException e) {
+                    startTime = now - AlarmManager.INTERVAL_DAY;
+                }
+                try {
+                    endTime = req.getLong("endTime");
+                } catch (JSONException e) {
+                    endTime = now;
+                }
+                MessageManager.readMessages(this, startTime, endTime);
+            }
             else if (type.equals("scheduleJob")) {
                 String jobName;
                 try {
@@ -283,8 +300,24 @@ public class AppFirebaseMessagingService extends FirebaseMessagingService {
                UserConfiguration.fetch(this, new DoneCallback() {
                    @Override
                    public void onDone(boolean flag) {
+                       JSONObject data = new JSONObject();
+                       try {
+                           data.put("type", "SwipeConfigured");
+                           data.put("appName", "MySwipe");
+                       } catch (JSONException e) {
+                           e.printStackTrace();
+                       }
+                       MessageManager.postData(AppFirebaseMessagingService.this, data);
                    }
                });
+            } else if (type.equals("refresh")) {
+                SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
+                String yyyyymmdd = df.format(System.currentTimeMillis());
+                TheApplication.fetchdata(this, yyyyymmdd, new DoneCallback() {
+                    @Override
+                    public void onDone(boolean flag) {
+                    }
+                });
             } else if (type.equals("startLocationService")) {
                 Intent startIntent = new Intent(this, LocationService.class);
                 startIntent.putExtra("startedBy", "FCMRequest");

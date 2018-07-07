@@ -1,5 +1,6 @@
 package kpraveen.in.myswipe;
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -10,12 +11,19 @@ import android.content.Intent;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Calendar;
 
 
 public class LocationService extends Service {
@@ -51,7 +59,91 @@ public class LocationService extends Service {
     private int numNetworkResults = 0;
     private double distanceFromOffice = 0;
     private boolean reachedOffice = false;
+    private long lastCheckTime;
+    private Location lastLocationReceived = null;
+
     public LocationService() {
+    }
+
+    public static void cancelAlarm(Context context, int requestCode) {
+        Intent intent = new Intent(context, LocationService.class);
+        PendingIntent pendingIntent;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            pendingIntent = PendingIntent.getForegroundService(context, requestCode, intent, PendingIntent.FLAG_NO_CREATE);
+        } else {
+            pendingIntent = PendingIntent.getService(context, requestCode, intent, PendingIntent.FLAG_NO_CREATE);
+        }
+        AlarmManager alarmManager = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
+        if (pendingIntent != null) {
+            alarmManager.cancel(pendingIntent);
+        }
+    }
+
+    public static void setAlarm(Context context, int requestCode, long time) {
+        Intent intent = new Intent(context, LocationService.class);
+        intent.putExtra("startedBy", "Alarm" + requestCode);
+        PendingIntent pendingIntent = PendingIntent.getService(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        AlarmManager alarmManager = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
+        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, time,  AlarmManager.INTERVAL_DAY , pendingIntent);
+        Log.d(TheApplication.TAG, "Alarm set for " + time);
+    }
+
+    public static void setDailyAlarms(Context context) {
+        Calendar calendar = Calendar.getInstance();
+
+        long time = 0;
+
+        for (int i = TheApplication.DAILY_ALARM1; i <= TheApplication.DAILY_ALARM4; i++) {
+            cancelAlarm(context, i);
+        }
+
+        if (UserConfiguration.instance.alarm1 > 0) {
+            int hour = (int) UserConfiguration.instance.alarm1 / 60;
+            int min = (int) UserConfiguration.instance.alarm1 % 60;
+            calendar.set(Calendar.HOUR_OF_DAY, hour);
+            calendar.set(Calendar.MINUTE, min);
+            time = calendar.getTimeInMillis();
+            if (System.currentTimeMillis() > time) {
+                time = time + AlarmManager.INTERVAL_DAY;
+            }
+            setAlarm(context, TheApplication.DAILY_ALARM1, time);
+        }
+
+        if (UserConfiguration.instance.alarm2 > 0) {
+            int hour = (int) UserConfiguration.instance.alarm2 / 60;
+            int min = (int) UserConfiguration.instance.alarm2 % 60;
+            calendar.set(Calendar.HOUR_OF_DAY, hour);
+            calendar.set(Calendar.MINUTE, min);
+            time = calendar.getTimeInMillis();
+            if (System.currentTimeMillis() > time) {
+                time = time + AlarmManager.INTERVAL_DAY;
+            }
+            setAlarm(context, TheApplication.DAILY_ALARM2, time);
+        }
+
+        if (UserConfiguration.instance.alarm3 > 0) {
+            int hour = (int) UserConfiguration.instance.alarm3 / 60;
+            int min = (int) UserConfiguration.instance.alarm3 % 60;
+            calendar.set(Calendar.HOUR_OF_DAY, hour);
+            calendar.set(Calendar.MINUTE, min);
+            time = calendar.getTimeInMillis();
+            if (System.currentTimeMillis() > time) {
+                time = time + AlarmManager.INTERVAL_DAY;
+            }
+            setAlarm(context, TheApplication.DAILY_ALARM3, time);
+        }
+
+        if (UserConfiguration.instance.alarm4 > 0) {
+            int hour = (int) UserConfiguration.instance.alarm4 / 60;
+            int min = (int) UserConfiguration.instance.alarm4 % 60;
+            calendar.set(Calendar.HOUR_OF_DAY, hour);
+            calendar.set(Calendar.MINUTE, min);
+            time = calendar.getTimeInMillis();
+            if (System.currentTimeMillis() > time) {
+                time = time + AlarmManager.INTERVAL_DAY;
+            }
+            setAlarm(context, TheApplication.DAILY_ALARM4, time);
+        }
     }
 
     public void postLocation(Location location) {
@@ -64,11 +156,18 @@ public class LocationService extends Service {
         postLocation(location);
         LocationHelper.locationReceived(this, location);
         lastLocationSent = location;
+        lastLocationReceived = location;
         lastLocationSentTime = System.currentTimeMillis();
         distanceFromOffice = LocationHelper.distanceFromOffice(this);
         Log.d(TheApplication.TAG, "New distance from office now is " + distanceFromOffice);
         if (!reachedOffice) {
-            if (location.getAccuracy() < 30 && distanceFromOffice < UserConfiguration.instance.reachedDistanceLimit) {
+            if (distanceFromOffice > UserConfiguration.instance.farDistance) {
+                Log.d(TheApplication.TAG, "Too far from office so schedule job and stop service " + distanceFromOffice);
+                LocationJob.scheduleJob(this, LocationJob.LOCATION_JOB_ONE, AlarmManager.INTERVAL_FIFTEEN_MINUTES);
+                stopTheService();
+                return;
+            }
+            if (location.getAccuracy() < 100 && distanceFromOffice < UserConfiguration.instance.reachedDistanceLimit) {
                 Log.d(TheApplication.TAG, "Reached office");
                 reachedOffice = true;
                 mFinishTimer = new CountDownTimer(120000, 12000) {
@@ -79,15 +178,23 @@ public class LocationService extends Service {
 
                     @Override
                     public void onFinish() {
-                        stopForeground(true);
-                        stopGPS();
-                        stopNetwork();
-                        stopSelf();
+                        stopTheService();
                     }
                 };
-                mFinishTimer.cancel();
+                mFinishTimer.start();
             }
         }
+    }
+
+    private void stopTheService() {
+        if (mTimer != null) {
+            mTimer.cancel();
+        }
+        mTimer = null;
+        stopForeground(true);
+        stopGPS();
+        stopNetwork();
+        stopSelf();
     }
 
     @Override
@@ -160,6 +267,8 @@ public class LocationService extends Service {
         gpsRunning = true;
     }
 
+
+
     private void stopGPS() {
         try {
             Log.d(TheApplication.TAG, "stop GPS");
@@ -195,6 +304,14 @@ public class LocationService extends Service {
         mTimer = new CountDownTimer(20*TheApplication.MINUTE, 60000) {
             @Override
             public void onTick(long millisUntilFinished) {
+                if (System.currentTimeMillis() - lastRequestTime > 60000) {
+                    if (lastLocationReceived == null) {
+                        stopTheService();
+                    }
+                    else if (lastLocationReceived.getTime() - System.currentTimeMillis() > 60000) {
+                        stopTheService();
+                    }
+                }
             }
             @Override
             public void onFinish() {
@@ -205,17 +322,6 @@ public class LocationService extends Service {
         };
         mTimer.start();
     }
-
-    // check if reached office or stationary then stop
-//    IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-//    Intent batteryStatus = LocationService.this.registerReceiver(null, ifilter);
-//    int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-//    int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-//    batteryPercentage = 100 * level / (float) scale;
-//                if (batteryPercentage < 10) {
-//        stopSelf();
-//    }
-
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -239,6 +345,42 @@ public class LocationService extends Service {
 
         Log.d(TheApplication.TAG, "LocationService service start. By " + mStartedBy);
 
+        String ssid = "";
+        WifiManager wifiManager = (WifiManager) this.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifiManager != null) {
+            WifiInfo info = wifiManager.getConnectionInfo();
+            if (info != null) {
+                ssid = info.getSSID();
+                if (ssid.equals("<unknown ssid>")) {
+                    ssid = "";
+                } else if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
+                    ssid = ssid.substring(1, ssid.length() - 1);
+                }
+            }
+        }
+
+        JSONObject data = new JSONObject();
+        try {
+            data.put("type", "SwipeLocationService");
+            data.put("startedBy", mStartedBy);
+            data.put("appName", "MySwipe");
+            data.put("wifissid", ssid);
+            if (UserConfiguration.instance.homeWifiSsid.equals(ssid)) {
+                data.put("atHomeWifi", true);
+            } else {
+                data.put("atHomeWifi", false);
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        MessageManager.postData(this, data);
+
+        if (UserConfiguration.instance.homeWifiSsid.equals(ssid)) {
+            Log.d(TheApplication.TAG, "at home wifi");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         final LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         gpsEnabled = manager.isProviderEnabled(LocationManager.GPS_PROVIDER);
         networkEnabled = manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
@@ -251,6 +393,7 @@ public class LocationService extends Service {
         if (!gpsEnabled && !networkEnabled) {
             // Raise a notification
             stopSelf();
+            return START_NOT_STICKY;
         }
 
         numGPSResults = 0;
@@ -270,6 +413,7 @@ public class LocationService extends Service {
         }
 
         lastRequestTime = System.currentTimeMillis();
+        lastCheckTime = System.currentTimeMillis();
 
         return START_NOT_STICKY;
     }

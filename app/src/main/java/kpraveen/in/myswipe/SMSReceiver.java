@@ -46,7 +46,13 @@ public class SMSReceiver extends BroadcastReceiver {
                     }
                     message.text = body;
                     Log.d(TAG, "time " + message.smsTime + " final body " + body);
-                    MessageManager.postSwipeMessage(context, message);
+                    if (UserConfiguration.instance.applySmsFilter) {
+                        if (message.text.contains("Punched on")) {
+                            MessageManager.postSwipeMessage(context, message);
+                        }
+                    } else {
+                        MessageManager.postSwipeMessage(context, message);
+                    }
                     MessageManager.processMessage(context, message);
                 } catch(Exception e) {
                     //Log.e(TeamApplication.TAG, e);

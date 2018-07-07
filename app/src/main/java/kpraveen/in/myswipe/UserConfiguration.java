@@ -46,6 +46,11 @@ public class UserConfiguration {
     public float minBatteryPercentage = 15.0f;
     public boolean useLocationService = false;
     public boolean extendTimerWhenNear = true;
+    public int alarm1 = 0;
+    public int alarm2 = 0;
+    public int alarm3 = 0;
+    public int alarm4 = 0;
+    public boolean useJobForAlarm = true;
 
     public static void load(Context context) {
         if (!loaded) {
@@ -93,6 +98,7 @@ public class UserConfiguration {
                             jobScheduler.cancelAll();
                         }
                         TheApplication.scheduleJobs(context);
+                        LocationService.setDailyAlarms(context);
                    }
                 } catch (JSONException e) {
                 }

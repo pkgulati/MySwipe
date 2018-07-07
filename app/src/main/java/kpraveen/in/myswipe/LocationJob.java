@@ -340,6 +340,12 @@ public class LocationJob extends JobService {
             calendar.set(Calendar.HOUR_OF_DAY, 7);
             calendar.set(Calendar.MINUTE, 30);
             scheduleJob(LocationJob.this, nextJobId, (calendar.getTimeInMillis()-System.currentTimeMillis()));
+        } else if (hour <= 9) {
+            if (reachedOffice) {
+                scheduleJob(LocationJob.this, nextJobId, 2*AlarmManager.INTERVAL_HOUR);
+            } else {
+                scheduleJob(LocationJob.this, nextJobId, AlarmManager.INTERVAL_HOUR);
+            }
         } else if (hour <= 11) {
             if (reachedOffice) {
                 scheduleJob(LocationJob.this, nextJobId, 2*AlarmManager.INTERVAL_HOUR);
